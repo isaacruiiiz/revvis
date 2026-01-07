@@ -1,59 +1,39 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import { useEffect, useState } from 'react';
-import { supabase } from '../supabase'; // Importamos nuestra conexión
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import "@/global.css";
-import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider"; // Configuración de Gluestack
 
-export default function App() {
-  const [coches, setCoches] = useState([]);
+// Componente que vigila la navegación
+function AuthGuard() {
+  const { session, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
-  // Esta función pide los datos a Supabase
-  async function fetchCoches() {
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*');
-
-    if (error) console.log('Error:', error);
-    else setCoches(data);
-  }
-
-  // Se ejecuta al iniciar la app
   useEffect(() => {
-    fetchCoches();
-  }, []);
+    if (loading) return;
 
+    // Si tuviéramos grupo auth
+    // const inAuthGroup = segments[0] === '(auth)'; 
+    
+    if (!session && segments[0] !== 'login') {
+      // Si no hay sesión y no estamos en login, mándalo al login
+      router.replace('/login');
+    } else if (session && segments[0] === 'login') {
+      // Si ya hay sesión y está en login, mándalo al inicio
+      router.replace('/');
+    }
+  }, [session, loading, segments]);
+
+  return <Slot />;
+}
+
+export default function RootLayout() {
   return (
     <GluestackUIProvider>
-      <View style={styles.container}>
-        <Text style={styles.title}>Mis Coches (Desde Supabase):</Text>
-
-        {coches.map((coche) => (
-          <Text key={coche.id} style={styles.item}>
-            🚗 {coche.brand} - {coche.model}
-          </Text>
-        ))}
-
-        <StatusBar style="auto" />
-      </View>
+      <AuthProvider>
+        <AuthGuard />
+      </AuthProvider>
     </GluestackUIProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  item: {
-    fontSize: 16,
-    margin: 5,
-  }
-});
